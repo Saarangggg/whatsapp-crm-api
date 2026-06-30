@@ -23,6 +23,7 @@ WORKDIR /app
 
 # Switch to the non-root user early
 USER user
+ENV HOME=/home/user
 
 # Force Git to use HTTPS for the non-root 'user' (bypasses GitHub blocks and SSH key checks)
 RUN git config --global url."https://github.com/".insteadOf git://github.com/ && \
