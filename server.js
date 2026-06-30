@@ -27,10 +27,10 @@ const CONFIG_FILE = path.join(__dirname, 'automation-config.json');
 
 // Default automation configuration
 let automationConfig = {
-  enabled: false,
+  enabled: true,
   systemPrompt: 'You are a helpful customer service AI assistant.',
   openRouterApiKey: '',
-  model: 'google/gemma-4-26b-a4b-it:free'
+  model: 'google/gemma-2-9b-it:free'
 };
 
 // Load configuration on startup
@@ -226,8 +226,8 @@ function initWhatsAppClient() {
 // Generate response using OpenRouter and send reply
 async function handleAiAutoreply(msg) {
   const apiKey = automationConfig.openRouterApiKey || process.env.OPENROUTER_API_KEY;
-  const model = automationConfig.model || 'google/gemma-4-26b-a4b-it:free';
-  const systemPrompt = automationConfig.systemPrompt || 'You are a helpful customer service AI assistant.';
+  const model = automationConfig.model || 'google/gemma-2-9b-it:free';
+  const systemPrompt = automationConfig.systemPrompt || process.env.SYSTEM_PROMPT || 'You are a helpful customer service AI assistant.';
   const senderPhone = msg.from.split('@')[0];
   const userText = (msg.body || msg.caption || '').trim();
 
