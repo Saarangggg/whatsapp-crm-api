@@ -166,7 +166,7 @@ To configure how the AI handles customer queries (e.g. pricing, product question
 4. Answer the 5 interactive questions one-by-one regarding your business rules, catalog details, order methods, payment rules, and preferred language tone.
 5. Copy the final structured System Prompt generated for you by the AI.
 6. Set the System Prompt:
-   - **Locally (Recommended)**: Create or edit the `ai-context.txt` file in the root directory and paste your generated prompt there. Make sure `SYSTEM_PROMPT_FILE=ai-context.txt` is configured in your `.env` file.
+   - **Locally (Recommended)**: Create or edit the `ai-context.md` file in the root directory and paste your generated prompt there. Make sure `SYSTEM_PROMPT_FILE=ai-context.md` is configured in your `.env` file.
    - **Locally (Alternative)**: Add the `SYSTEM_PROMPT` variable directly to your `.env` file:
      ```env
      SYSTEM_PROMPT="Your generated system prompt text goes here..."

@@ -224,7 +224,7 @@ function initWhatsAppClient() {
 }
 
 function getSystemPrompt() {
-  const promptFile = process.env.SYSTEM_PROMPT_FILE || 'ai-context.txt';
+  const promptFile = process.env.SYSTEM_PROMPT_FILE || 'ai-context.md';
   try {
     const filePath = path.isAbsolute(promptFile) ? promptFile : path.join(__dirname, promptFile);
     if (fs.existsSync(filePath)) {
