@@ -255,3 +255,12 @@ The broadcast manager runs entirely client-side:
 ### Q3: My WhatsApp number was blocked.
 - **Cause**: Sending high volumes of promotional messages to non-opt-in contacts or utilizing rapid delays (less than 5 seconds).
 - **Fix**: Use WhatsApp Business, maintain high delay spacing (10+ seconds), keep the `ADMIN_PHONE` setting configured to skip loops, and message only contacts who have consented to receive messages from you.
+
+---
+
+## ☕ Support the Project (Buy Me a Coffee)
+
+If this project has saved you money on official API fees, helped you build your CRM, or automated your customer support bot, feel free to support my work!
+
+- **UPI ID (India)**: `sarangwalle@oksbi`
+
