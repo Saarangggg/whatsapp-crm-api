@@ -1,7 +1,8 @@
 FROM node:18-bullseye-slim
 
-# Install Chromium and DNS utilities
+# Install Git (required for github npm dependencies), Chromium, and DNS utilities
 RUN apt-get update && apt-get install -y \
+    git \
     chromium \
     chromium-sandbox \
     libnss3 \
@@ -12,12 +13,19 @@ RUN apt-get update && apt-get install -y \
     dnsmasq \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a non-root user with UID 1000 for Hugging Face Spaces compatibility
+RUN useradd -m -u 1000 user
 WORKDIR /app
 
-COPY package*.json ./
+# Copy package files and install dependencies
+COPY --chown=user package*.json ./
 RUN npm install --production
 
-COPY . .
+# Copy application files and grant permissions to user 1000
+COPY --chown=user . .
+
+# Switch to the non-root user
+USER user
 
 EXPOSE 7860
 
