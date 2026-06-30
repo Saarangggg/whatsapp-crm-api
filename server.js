@@ -697,6 +697,78 @@ app.post('/api/send-message', async (req, res) => {
   }
 });
 
+app.post('/api/broadcast', async (req, res) => {
+  if (!isReady) {
+    return res.status(503).json({ error: 'WhatsApp client is not ready.' });
+  }
+  const { contacts, message, template, delay, interval } = req.body;
+  if (!contacts || !Array.isArray(contacts)) {
+    return res.status(400).json({ error: 'contacts array is required' });
+  }
+  
+  const msgText = message || template || '';
+  if (!msgText) {
+    return res.status(400).json({ error: 'message template content is required' });
+  }
+
+  const delaySec = parseInt(delay || interval || 5, 10);
+  
+  res.json({ success: true, message: `Started background broadcast to ${contacts.length} contacts.` });
+
+  // Run in background
+  (async () => {
+    log(`[API Broadcast] Starting background broadcast to ${contacts.length} contacts...`);
+    for (let i = 0; i < contacts.length; i++) {
+      const contact = contacts[i];
+      let phone = '';
+      
+      if (typeof contact === 'string' || typeof contact === 'number') {
+        phone = String(contact);
+      } else if (contact && typeof contact === 'object') {
+        phone = String(contact.phone || contact.Phone || contact.number || '');
+      }
+
+      if (!phone) {
+        log(`[API Broadcast] Row #${i + 1}: Skipped (No phone number)`);
+        continue;
+      }
+
+      let msgToSend = msgText;
+      if (contact && typeof contact === 'object') {
+        for (const key in contact) {
+          msgToSend = msgToSend.replace(new RegExp(`{${key}}`, 'gi'), contact[key]);
+        }
+      }
+
+      try {
+        const cleaned = phone.replace(/\D/g, '');
+        const cc2 = '91';
+        const withCountry = cleaned.length <= 10 ? cc2 + cleaned : cleaned;
+        let targetJid = `${withCountry}@c.us`;
+
+        try {
+          const numberId = await client.getNumberId(withCountry);
+          if (numberId) {
+            targetJid = numberId._serialized;
+          }
+        } catch (e) {}
+
+        await client.sendMessage(targetJid, msgToSend);
+        log(`[API Broadcast] Sent message to +${withCountry}`);
+      } catch (err) {
+        log(`[API Broadcast] Failed to send message to ${phone}: ${err.message}`);
+      }
+
+      if (i < contacts.length - 1) {
+        const variance = (Math.random() * 0.4 - 0.2) * delaySec;
+        const finalDelay = Math.max(1, delaySec + variance) * 1000;
+        await new Promise(resolve => setTimeout(resolve, finalDelay));
+      }
+    }
+    log(`[API Broadcast] Completed background broadcast.`);
+  })();
+});
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function forwardToBackend(msg) {
