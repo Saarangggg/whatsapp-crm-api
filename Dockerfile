@@ -21,11 +21,14 @@ RUN git config --global url."https://github.com/".insteadOf git://github.com/ &&
     git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/ && \
     git config --global url."https://github.com/".insteadOf ssh://git@github.com/
 
-# Create a non-root user with UID 1000 for Hugging Face Spaces compatibility
-RUN useradd -m -u 1000 user
+# Create a non-root user and pre-create the workspace folder with appropriate user permissions
+RUN useradd -m -u 1000 user && mkdir /app && chown -R user:user /app
 WORKDIR /app
 
-# Copy package files
+# Switch to the non-root user early
+USER user
+
+# Copy package files (already owned by user)
 COPY --chown=user package*.json ./
 
 # Remove package-lock.json to avoid platform lockfile conflicts, then install dependencies
@@ -33,9 +36,6 @@ RUN rm -f package-lock.json && npm install --production
 
 # Copy application files and grant permissions to user 1000
 COPY --chown=user . .
-
-# Switch to the non-root user
-USER user
 
 EXPOSE 7860
 
