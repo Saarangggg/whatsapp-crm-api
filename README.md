@@ -196,7 +196,7 @@ If the message contains an attachment (image, pdf, document), the `"media"` obje
 
 1. Deploy the app to Hugging Face or run it locally.
 2. Confirm the status badge on Hugging Face is green (**Running**). If it is building or restarting, you can check the logs in the **Container logs** console.
-3. Open the deployment URL [https://sarangg-mywha.hf.space](https://sarangg-mywha.hf.space) in your browser and sign in with your `AUTH_USER` and `AUTH_PASSWORD`.
+3. Open your Space's direct URL in your browser (which follows the format: `https://<username>-<space-name>.hf.space` or can be found by clicking the three dots menu on the top-right -> **Embed this Space**) and log in with your `AUTH_USER` and `AUTH_PASSWORD`.
 4. Click the **Phone icon** (📱) on the top-right of the dashboard to show the QR Code overlay modal.
 5. On your mobile phone, open WhatsApp.
    - *Recommendation*: Use **WhatsApp Business** to avoid standard spam blocks.
@@ -224,7 +224,7 @@ Authenticate all HTTP requests using either `x-wa-secret: <WA_SECRET>` or the he
 curl -X POST -H "Content-Type: application/json" \
   -H "x-wa-secret: my-secret-key" \
   -d '{"phone": "919048186012", "message": "Automated CRM Alert"}' \
-  https://sarangg-mywha.hf.space/api/send-message
+  https://<your-space-subdomain>.hf.space/api/send-message
 ```
 
 ---
