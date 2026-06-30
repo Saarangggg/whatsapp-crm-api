@@ -139,7 +139,8 @@ To protect your login sessions, do **not** push your `.env` file containing pass
 | `ADMIN_PHONE` | Personal phone number (with country code, e.g. `919876543210`). Bypasses AI replies. | `919876543210` | No |
 | `EXTERNAL_API_URL`| Custom endpoint placeholder for databases or CRM integrations. | `https://api.mywebsite.com` | No |
 | `OPENROUTER_API_KEY`| Fallback API key for AI Auto-replies. (Can also be set in Web UI settings). | `sk-or-v1-your-key` | No |
-| `SYSTEM_PROMPT` | Backend fallback context / prompt instructions for your AI chatbot replies. | `"You are a customer assistant..."`| No |
+| `SYSTEM_PROMPT_FILE`| Relative/absolute path to the text file containing the AI prompt (e.g. `ai-context.txt`). | `ai-context.txt` | No |
+| `SYSTEM_PROMPT` | Backend fallback context / prompt instructions for your AI chatbot replies (if file doesn't exist). | `"You are a customer assistant..."`| No |
 
 ---
 
@@ -165,12 +166,13 @@ To configure how the AI handles customer queries (e.g. pricing, product question
 4. Answer the 5 interactive questions one-by-one regarding your business rules, catalog details, order methods, payment rules, and preferred language tone.
 5. Copy the final structured System Prompt generated for you by the AI.
 6. Set the System Prompt:
-   - **Locally**: Open your `.env` file and add the `SYSTEM_PROMPT` variable (ensure it is enclosed in quotation marks):
+   - **Locally (Recommended)**: Create or edit the `ai-context.txt` file in the root directory and paste your generated prompt there. Make sure `SYSTEM_PROMPT_FILE=ai-context.txt` is configured in your `.env` file.
+   - **Locally (Alternative)**: Add the `SYSTEM_PROMPT` variable directly to your `.env` file:
      ```env
      SYSTEM_PROMPT="Your generated system prompt text goes here..."
      ```
    - **On Hugging Face Spaces**: Go to your Space **Settings** -> **Variables and secrets**, add a new **Variable** (not secret) named `SYSTEM_PROMPT`, and paste your prompt text.
-   - **Dashboard View**: Note that system prompt instructions are managed directly via server environment variables (`.env` or Space variables) for security and backend consistency.
+   - **Dashboard View**: Note that system prompt instructions are managed directly via server environment variables (`.env`, local files, or Space variables) for security and backend consistency.
 
 ---
 

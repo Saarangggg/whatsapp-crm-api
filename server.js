@@ -223,11 +223,33 @@ function initWhatsAppClient() {
   });
 }
 
+function getSystemPrompt() {
+  const promptFile = process.env.SYSTEM_PROMPT_FILE || 'ai-context.txt';
+  try {
+    const filePath = path.isAbsolute(promptFile) ? promptFile : path.join(__dirname, promptFile);
+    if (fs.existsSync(filePath)) {
+      return fs.readFileSync(filePath, 'utf8').trim();
+    }
+  } catch (err) {
+    // ignore
+  }
+
+  if (process.env.SYSTEM_PROMPT) {
+    return process.env.SYSTEM_PROMPT;
+  }
+
+  if (automationConfig.systemPrompt) {
+    return automationConfig.systemPrompt;
+  }
+
+  return 'You are a helpful customer service AI assistant.';
+}
+
 // Generate response using OpenRouter and send reply
 async function handleAiAutoreply(msg) {
   const apiKey = automationConfig.openRouterApiKey || process.env.OPENROUTER_API_KEY;
   const model = automationConfig.model || 'google/gemma-2-9b-it:free';
-  const systemPrompt = automationConfig.systemPrompt || process.env.SYSTEM_PROMPT || 'You are a helpful customer service AI assistant.';
+  const systemPrompt = getSystemPrompt();
   const senderPhone = msg.from.split('@')[0];
   const userText = (msg.body || msg.caption || '').trim();
 
@@ -461,7 +483,10 @@ app.get('/status', authenticateApi, (req, res) => {
 });
 
 app.get('/api/automation/config', authenticateApi, (req, res) => {
-  res.json(automationConfig);
+  res.json({
+    ...automationConfig,
+    systemPrompt: getSystemPrompt()
+  });
 });
 
 app.post('/api/automation/config', authenticateApi, (req, res) => {
