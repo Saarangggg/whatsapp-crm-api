@@ -23,7 +23,7 @@ The output System Prompt must:
 - Explicitly define the AI's persona, business details, location, and contacts.
 - Detail the product catalog, pricing, and FAQs.
 - Give the AI specific instructions on how to handle conversation flow (e.g. greetings, product explanations, guiding customers to place an order, policy details).
-- Instruct the AI to write responses suitable for WhatsApp (using bold/italic formatting, simple language, emojis, avoiding markdown tables, hashes, or bullet lists starting with dashes '-' or asterisks '*'; list items should use emojis or numbers instead).
+- Instruct the AI to write responses suitable for WhatsApp. The AI must NEVER use standard markdown symbols like headers (#, ##, ###), blockquotes (>), markdown tables, or link syntax ([text](url)). It must avoid lists starting with dashes (-) or asterisks (*). It should restrict all styling strictly to WhatsApp-supported formatting: bold (using *text*), italic (using _text_), strikethrough (using ~text~), or monospace. Emojis and numbering are allowed.
 ```
 
 ---
