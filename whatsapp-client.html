@@ -824,6 +824,35 @@
       min-height: 120px;
     }
     
+    .form-row input[type="file"] {
+      width: 100%;
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      background: var(--input-bg);
+      border: 1px dashed var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+    }
+    
+    .form-row input[type="file"]::-webkit-file-upload-button {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 500;
+      margin-right: 12px;
+      transition: var(--transition-fast);
+    }
+    
+    .form-row input[type="file"]::-webkit-file-upload-button:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--green-light);
+    }
+    
     .form-row input:focus,
     .form-row textarea:focus,
     .form-row select:focus {
