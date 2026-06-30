@@ -30,7 +30,7 @@ let automationConfig = {
   enabled: true,
   systemPrompt: 'You are a helpful customer service AI assistant.',
   openRouterApiKey: '',
-  model: 'openrouter/auto'
+  model: 'google/gemma-3-27b-it:free'
 };
 
 // Load configuration on startup
@@ -294,7 +294,16 @@ function getSystemPrompt() {
 // Generate response using OpenRouter and send reply
 async function handleAiAutoreply(msg, isFirstMessage = false) {
   const apiKey = automationConfig.openRouterApiKey || process.env.OPENROUTER_API_KEY;
-  const model = automationConfig.model || 'openrouter/auto';
+  // Free model fallback list — tries each in order if one fails
+  const FREE_MODELS = [
+    automationConfig.model && automationConfig.model !== 'openrouter/auto' ? automationConfig.model : null,
+    'openai/gpt-oss-120b',             // OpenAI gpt-oss-120b (free)
+    'poolside/laguna-m.1',             // Poolside Laguna M.1 (free)
+    'nvidia/nemotron-3-super',         // NVIDIA Nemotron 3 Super (free)
+    'google/gemma-3-27b-it:free',
+    'qwen/qwen3-8b:free',
+    'mistralai/mistral-7b-instruct:free'
+  ].filter(Boolean);
   const basePrompt = getSystemPrompt();
   const senderPhone = msg.from.split('@')[0];
   const userText = (msg.body || msg.caption || '').trim();
@@ -321,13 +330,18 @@ async function handleAiAutoreply(msg, isFirstMessage = false) {
 
   const bookingInstruction = `
 
-BOOKING CONFIRMATION RULES:
-- When you have collected all required booking details (Name, Phone, Service/Request, Date/Time) and the customer confirms (says "yes", "confirm", "ok", "correct", "done"), output a special tag on its own line:
+BOOKING RULES — VERY IMPORTANT:
+- When a customer wants to book/appointment/schedule, ask for ALL required details in ONE SINGLE message:
+  Name, Phone Number, Service/Request, and Preferred Date & Time.
+  Example: "Please share the following in one message:\n👤 Name:\n📞 Phone:\n🛠️ Service:\n📆 Date & Time:"
+- Do NOT ask for one field at a time. Always ask everything in one message.
+- Once the customer provides all the details, summarise them and ask for confirmation.
+- When the customer confirms (says "yes", "confirm", "ok", "correct", "done"), output this tag on its own line:
   [BOOKING_CONFIRMED: name="...", phone="...", service="...", datetime="..."]
-- After the tag, send a friendly confirmation message to the customer.
+- After the tag, send a friendly confirmation message.
 - If the customer says "cancel", "stop", "exit", or "no" to cancel, output: [CANCEL]
-- Always remind the customer they can type *stop* or *cancel* anytime to exit.
-- Do NOT ask for details you already have in the conversation history.
+- Remind the customer they can type *stop* or *cancel* anytime to exit.
+- Do NOT re-ask for details already provided in the conversation history.
 - Do NOT require vehicle/car info unless the business context specifically needs it.`;
 
   const systemPrompt = basePrompt + greetingInstruction + bookingInstruction;
@@ -338,105 +352,122 @@ BOOKING CONFIRMATION RULES:
   // Build messages array with full history
   const history = conversationHistory.get(senderPhone) || [];
 
-  log(`[AI Autoreply] Generating reply for ${senderPhone} using model ${model}... (firstMessage=${isFirstMessage}, historyLen=${history.length})`);
+  // Try each free model in order until one succeeds
+  let replyText = '';
+  let usedModel = '';
+  for (const model of FREE_MODELS) {
+    log(`[AI Autoreply] Trying model ${model} for ${senderPhone}...`);
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'X-Title': 'WhatsApp CRM Service'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...history
+          ]
+        })
+      });
+      if (res.ok) {
+        const aiData = await res.json();
+        const text = aiData?.choices?.[0]?.message?.content;
+        if (text) {
+          replyText = text;
+          usedModel = model;
+          break;
+        } else if (aiData?.error) {
+          log(`[AI Autoreply] Model ${model} error: ${aiData.error.message || JSON.stringify(aiData.error)}`);
+        }
+      } else {
+        const errText = await res.text();
+        log(`[AI Autoreply] Model ${model} failed (${res.status}): ${errText.slice(0, 120)}`);
+      }
+    } catch (err) {
+      log(`[AI Autoreply] Model ${model} threw: ${err.message}`);
+    }
+  }
+
+  if (!replyText) {
+    log(`[AI Autoreply] All models failed for ${senderPhone}.`);
+    return;
+  }
+
+  log(`[AI Autoreply] Got reply from ${usedModel} for ${senderPhone}.`);
 
   try {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'X-Title': 'WhatsApp CRM Service'
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...history
-        ]
-      })
-    });
-
-    if (res.ok) {
-      const aiData = await res.json();
-      let replyText = aiData?.choices?.[0]?.message?.content;
-      if (replyText) {
-        // ── Check for CANCEL tag ──────────────────────────────────────────
-        if (replyText.includes('[CANCEL]')) {
-          clearHistory(senderPhone);
-          const cleanReply = replyText.replace('[CANCEL]', '').trim() ||
-            `No problem! Conversation cancelled. Type anything to start again. 😊`;
-          await client.sendMessage(msg.from, cleanReply);
-          log(`[AI Autoreply] Conversation cancelled for ${senderPhone}.`);
-          return;
-        }
-
-        // ── Check for BOOKING_CONFIRMED tag ───────────────────────────────
-        const bookingTagRegex = /\[BOOKING_CONFIRMED:\s*name="([^"]*)",\s*phone="([^"]*)",\s*service="([^"]*)",\s*datetime="([^"]*)"\]/i;
-        const bookingMatch = replyText.match(bookingTagRegex);
-        if (bookingMatch) {
-          const [, bName, bPhone, bService, bDatetime] = bookingMatch;
-          const cleanReply = replyText.replace(bookingTagRegex, '').replace(/\n{3,}/g, '\n\n').trim();
-
-          // Resolve the real WA link — use bPhone if senderPhone is a @lid internal ID
-          const isLid = (msg.from || '').includes('@lid');
-          const waLinkPhone = isLid
-            ? bPhone.replace(/\D/g, '')       // use customer's provided phone
-            : senderPhone;                     // use real @c.us number
-
-          // Notify admin
-          const adminPhone = (process.env.ADMIN_PHONE || '').replace(/\D/g, '');
-          if (adminPhone && client) {
-            const adminJid = `${adminPhone}@c.us`;
-            const adminMsg =
-              `📅 *New Booking Request!*\n` +
-              `─────────────────\n` +
-              `👤 *Name:* ${bName}\n` +
-              `📞 *Phone:* ${bPhone}\n` +
-              `🛠️ *Service:* ${bService}\n` +
-              `📆 *Date/Time:* ${bDatetime}\n` +
-              `─────────────────\n` +
-              `💬 *Customer WA:* wa.me/${waLinkPhone}`;
-            try {
-              await client.sendMessage(adminJid, adminMsg);
-              log(`[Booking] Forwarded booking from ${senderPhone} to admin ${adminPhone}`);
-            } catch (e) {
-              log(`[Booking] Failed to notify admin: ${e.message}`);
-            }
-          }
-
-          // Send confirmation to customer and clear history
-          await client.sendMessage(msg.from, cleanReply || `✅ Your booking is confirmed! We'll contact you shortly. 😊`);
-          clearHistory(senderPhone);
-          log(`[Booking] Booking confirmed and history cleared for ${senderPhone}.`);
-          return;
-        }
-
-        // ── Normal AI reply ───────────────────────────────────────────────
-        // Add assistant reply to history
-        addToHistory(senderPhone, 'assistant', replyText);
-
-        await client.sendMessage(msg.from, replyText);
-        log(`[AI Autoreply] Sent response to ${senderPhone}: "${replyText.replace(/\n/g, ' ').slice(0, 100)}"`);
-
-        // Forward AI reply to webhook
-        await forwardToBackend({
-          from: (client.info?.wid?._serialized) || 'system@c.us',
-          body: replyText,
-          type: 'chat',
-          hasMedia: false
-        });
-      } else {
-        log(`[AI Autoreply] Empty response from OpenRouter.`);
-      }
-    } else {
-      const errText = await res.text();
-      log(`[AI Autoreply] OpenRouter API error: ${res.status} — ${errText}`);
+    // ── Check for CANCEL tag ──────────────────────────────────────────────
+    if (replyText.includes('[CANCEL]')) {
+      clearHistory(senderPhone);
+      const cleanReply = replyText.replace('[CANCEL]', '').trim() ||
+        `No problem! Conversation cancelled. Type anything to start again. 😊`;
+      await client.sendMessage(msg.from, cleanReply);
+      log(`[AI Autoreply] Conversation cancelled for ${senderPhone}.`);
+      return;
     }
+
+    // ── Check for BOOKING_CONFIRMED tag ──────────────────────────────────
+    const bookingTagRegex = /\[BOOKING_CONFIRMED:\s*name="([^"]*)",\s*phone="([^"]*)",\s*service="([^"]*)",\s*datetime="([^"]*)"\]/i;
+    const bookingMatch = replyText.match(bookingTagRegex);
+    if (bookingMatch) {
+      const [, bName, bPhone, bService, bDatetime] = bookingMatch;
+      const cleanReply = replyText.replace(bookingTagRegex, '').replace(/\n{3,}/g, '\n\n').trim();
+
+      // Resolve the real WA link — use bPhone if senderPhone is a @lid internal ID
+      const isLid = (msg.from || '').includes('@lid');
+      const waLinkPhone = isLid
+        ? bPhone.replace(/\D/g, '')       // use customer's provided phone
+        : senderPhone;                     // use real @c.us number
+
+      // Notify admin
+      const adminPhone = (process.env.ADMIN_PHONE || '').replace(/\D/g, '');
+      if (adminPhone && client) {
+        const adminJid = `${adminPhone}@c.us`;
+        const adminMsg =
+          `📅 *New Booking Request!*\n` +
+          `─────────────────\n` +
+          `👤 *Name:* ${bName}\n` +
+          `📞 *Phone:* ${bPhone}\n` +
+          `🛠️ *Service:* ${bService}\n` +
+          `📆 *Date/Time:* ${bDatetime}\n` +
+          `─────────────────\n` +
+          `💬 *Customer WA:* wa.me/${waLinkPhone}`;
+        try {
+          await client.sendMessage(adminJid, adminMsg);
+          log(`[Booking] Forwarded booking from ${senderPhone} to admin ${adminPhone}`);
+        } catch (e) {
+          log(`[Booking] Failed to notify admin: ${e.message}`);
+        }
+      }
+
+      // Send confirmation to customer and clear history
+      await client.sendMessage(msg.from, cleanReply || `✅ Your booking is confirmed! We'll contact you shortly. 😊`);
+      clearHistory(senderPhone);
+      log(`[Booking] Booking confirmed and history cleared for ${senderPhone}.`);
+      return;
+    }
+
+    // ── Normal AI reply ───────────────────────────────────────────────────
+    addToHistory(senderPhone, 'assistant', replyText);
+    await client.sendMessage(msg.from, replyText);
+    log(`[AI Autoreply] Sent response to ${senderPhone} via ${usedModel}: "${replyText.replace(/\n/g, ' ').slice(0, 100)}"`);
+
+    // Forward AI reply to webhook
+    await forwardToBackend({
+      from: (client.info?.wid?._serialized) || 'system@c.us',
+      body: replyText,
+      type: 'chat',
+      hasMedia: false
+    });
   } catch (err) {
-    log(`[AI Autoreply] OpenRouter request failed: ${err.message}`);
+    log(`[AI Autoreply] Error processing reply for ${senderPhone}: ${err.message}`);
   }
 }
+
 
 function _reconnect() {
   log('Reconnecting in 5 s...');
