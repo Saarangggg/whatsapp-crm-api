@@ -16,17 +16,17 @@ RUN apt-get update && apt-get install -y \
     dnsmasq \
     && rm -rf /var/lib/apt/lists/*
 
-# Force Git to use HTTPS instead of git:// or ssh:// protocols (bypasses GitHub blocks and SSH key checks)
-RUN git config --global url."https://github.com/".insteadOf git://github.com/ && \
-    git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/ && \
-    git config --global url."https://github.com/".insteadOf ssh://git@github.com/
-
 # Create a non-root user and pre-create the workspace folder with appropriate user permissions
 RUN useradd -m -u 1000 user && mkdir /app && chown -R user:user /app
 WORKDIR /app
 
 # Switch to the non-root user early
 USER user
+
+# Force Git to use HTTPS for the non-root 'user' (bypasses GitHub blocks and SSH key checks)
+RUN git config --global url."https://github.com/".insteadOf git://github.com/ && \
+    git config --global url."https://github.com/".insteadOf git+ssh://git@github.com/ && \
+    git config --global url."https://github.com/".insteadOf ssh://git@github.com/
 
 # Copy package files (already owned by user)
 COPY --chown=user package*.json ./
