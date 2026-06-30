@@ -6,7 +6,7 @@ colorTo: blue
 sdk: docker
 pinned: false
 license: mit
-short_description: Free Self-Hosted WhatsApp API, Web CRM Dashboard, AI Autoreply, & Bulk Excel Broadcaster
+short_description: Free WhatsApp API & CRM Dashboard
 tags:
   - whatsapp-api
   - whatsapp-crm
