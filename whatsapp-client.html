@@ -1,0 +1,2020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Web Dashboard</title>
+  <meta name="description" content="Real-time WhatsApp Web dashboard client."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-app: #0b141a;
+      --bg-sidebar: #111b21;
+      --bg-chat: #0b141a;
+      --bg-header: #202c33;
+      --bg-active: #2a3942;
+      --bg-hover: #202c33;
+      --border-color: #222e35;
+      --text-primary: #e9edef;
+      --text-secondary: #8696a0;
+      --text-muted: #667781;
+      --green-primary: #00a884;
+      --green-hover: #008f72;
+      --green-light: #53bdeb;
+      --bubble-incoming: #202c33;
+      --bubble-outgoing: #005c4b;
+      --bubble-incoming-text: #e9edef;
+      --bubble-outgoing-text: #e9edef;
+      --input-bg: #2a3942;
+      --badge-bg: #00a884;
+      --badge-text: #111b21;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg-app);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* Main Container */
+    .app-container {
+      display: flex;
+      width: 100%;
+      height: 100vh;
+      background: var(--bg-sidebar);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Sidebar Styles */
+    .sidebar {
+      width: 30%;
+      min-width: 320px;
+      max-width: 450px;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      height: 100%;
+      position: relative;
+    }
+
+    .sidebar-header {
+      height: 60px;
+      background: var(--bg-header);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .profile-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--green-primary), #00796b);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: white;
+      font-weight: bold;
+    }
+
+    .profile-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .profile-details h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .status-badge {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-badge::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #ffb300;
+      border-radius: 50%;
+    }
+
+    .status-badge.connected::before {
+      background: var(--green-primary);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.2rem;
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
+    /* Tab Navigation Layout */
+    .tab-navigation {
+      display: flex;
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border-color);
+      padding: 4px;
+      gap: 4px;
+    }
+    
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      padding: 8px 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .tab-btn.active {
+      color: var(--green-primary);
+      background: rgba(0, 168, 132, 0.12);
+    }
+
+    .search-bar-container {
+      padding: 8px 12px;
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-wrapper {
+      display: flex;
+      align-items: center;
+      background: var(--input-bg);
+      border-radius: 8px;
+      padding: 6px 12px;
+      gap: 8px;
+    }
+
+    .search-icon {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .search-wrapper input {
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.88rem;
+      width: 100%;
+    }
+
+    .search-wrapper input:focus {
+      outline: none;
+    }
+
+    /* Chats List */
+    .chats-list {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--bg-sidebar);
+    }
+
+    .chat-item {
+      display: flex;
+      padding: 12px 16px;
+      gap: 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-color);
+      transition: background 0.15s;
+    }
+
+    .chat-item:hover {
+      background: var(--bg-hover);
+    }
+
+    .chat-item.active {
+      background: var(--bg-active);
+    }
+
+    .chat-item-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #3c4f5e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .chat-item-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      flex: 1;
+      min-width: 0; /* allows text truncation */
+    }
+
+    .chat-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+
+    .chat-name {
+      font-weight: 500;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-time {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .chat-item-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-preview {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .chat-preview.from-me::before {
+      content: '✓ ';
+      color: var(--text-secondary);
+    }
+
+    .unread-badge {
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 20px;
+      min-width: 18px;
+      text-align: center;
+      margin-left: 6px;
+    }
+
+    /* Chat Area Layout */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-chat);
+      position: relative;
+    }
+
+    /* Fallback and Empty States */
+    .no-chat-selected {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .welcome-container {
+      max-width: 460px;
+    }
+
+    .welcome-logo {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      opacity: 0.85;
+    }
+
+    .welcome-container h2 {
+      font-size: 1.6rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+    }
+
+    .welcome-container p {
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    .encrypted-badge {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Active Chat View */
+    .active-chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .chat-header {
+      height: 60px;
+      background: var(--bg-header);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      gap: 12px;
+    }
+
+    .back-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: none; /* hidden on desktop */
+      padding: 4px;
+    }
+
+    .chat-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #00796b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: white;
+      font-size: 1rem;
+    }
+
+    .chat-details {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .chat-details h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-jid {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Messages List */
+    .messages-thread {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background-image: radial-gradient(var(--border-color) 1px, transparent 0);
+      background-size: 20px 20px;
+      background-color: var(--bg-chat);
+    }
+
+    .message-bubble {
+      max-width: 65%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      position: relative;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
+    }
+
+    .message-bubble.incoming {
+      align-self: flex-start;
+      background: var(--bubble-incoming);
+      color: var(--bubble-incoming-text);
+      border-top-left-radius: 0;
+    }
+
+    .message-bubble.outgoing {
+      align-self: flex-end;
+      background: var(--bubble-outgoing);
+      color: var(--bubble-outgoing-text);
+      border-top-right-radius: 0;
+    }
+
+    .message-media-tag {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 4px;
+      padding: 4px 8px;
+      margin-bottom: 6px;
+      font-size: 0.75rem;
+      color: var(--green-light);
+      display: block;
+      font-weight: 500;
+    }
+
+    .message-meta {
+      align-self: flex-end;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    .message-ticks {
+      color: var(--green-light);
+      font-weight: bold;
+    }
+
+    /* Chat Input Bar */
+    .message-input-area {
+      height: 60px;
+      background: var(--bg-header);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+    }
+
+    .message-form {
+      display: flex;
+      width: 100%;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .message-form input {
+      flex: 1;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+
+    .message-form input:focus {
+      outline: none;
+      border-color: var(--green-primary);
+    }
+
+    .send-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--green-primary);
+      border: none;
+      color: var(--bg-sidebar);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .send-btn:hover {
+      background: var(--green-hover);
+    }
+
+    .send-icon {
+      transform: rotate(-10deg);
+      margin-left: 2px;
+    }
+
+    /* Modal Overlay styling */
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-content {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 14px; right: 18px;
+      font-size: 1.6rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: color 0.2s;
+    }
+
+    .close-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .modal-content h2 {
+      font-size: 1.3rem;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .qr-container {
+      width: 250px;
+      height: 250px;
+      background: white;
+      border-radius: 8px;
+      margin: 24px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .qr-container img {
+      width: 90%;
+      height: 90%;
+    }
+
+    .qr-instructions {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .loading-spinner {
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border-left-color: var(--green-primary);
+      animation: spin 1s linear infinite;
+      position: absolute;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    .loading-state {
+      padding: 30px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    /* CRM Feature View Styling */
+    .tab-panel-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: var(--bg-chat);
+      padding: 32px;
+      overflow-y: auto;
+      z-index: 5;
+    }
+    
+    .panel-header {
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 16px;
+    }
+    
+    .panel-header h2 {
+      font-size: 1.5rem;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    
+    .panel-header p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+    
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    
+    @media (min-width: 900px) {
+      .card-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .card-grid.full-width {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .panel-card {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .panel-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+      color: var(--green-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .form-row {
+      margin-bottom: 16px;
+    }
+    
+    .form-row label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    
+    .form-row input[type="text"],
+    .form-row input[type="password"],
+    .form-row input[type="number"],
+    .form-row select,
+    .form-row textarea {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      box-sizing: border-box;
+    }
+    
+    .form-row textarea {
+      resize: vertical;
+      min-height: 120px;
+    }
+    
+    .form-row input:focus,
+    .form-row textarea:focus,
+    .form-row select:focus {
+      outline: none;
+      border-color: var(--green-primary);
+    }
+    
+    /* Toggle switch */
+    .switch-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .switch-label-details h4 {
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    
+    .switch-label-details p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--border-color);
+      transition: .3s;
+      border-radius: 24px;
+    }
+    
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: var(--text-primary);
+      transition: .3s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+      background-color: var(--green-primary);
+    }
+    
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+    
+    .btn-primary {
+      background: var(--green-primary);
+      color: #111b21;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .btn-primary:hover {
+      background: var(--green-hover);
+    }
+    
+    .btn-danger {
+      background: #ef5350;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .btn-danger:hover {
+      background: #c62828;
+    }
+    
+    .btn-primary:disabled,
+    .btn-danger:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    /* Code block for documentation */
+    .code-block {
+      background: #0b141a;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'Consolas', 'Courier New', Courier, monospace;
+      font-size: 0.85rem;
+      color: #00e676;
+      overflow-x: auto;
+      margin-top: 8px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    
+    .code-block .copy-code-btn {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    
+    .code-block .copy-code-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    /* Broadcast stats and logs */
+    .broadcast-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .stat-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    
+    .stat-card .stat-val {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    
+    .stat-card .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    
+    .progress-bar-bg {
+      background: var(--border-color);
+      height: 10px;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    
+    .progress-bar-fill {
+      background: var(--green-primary);
+      width: 0%;
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+    
+    .broadcast-logs {
+      background: #0b141a;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      max-height: 200px;
+      height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    
+    .broadcast-log-entry {
+      margin-bottom: 4px;
+    }
+    .broadcast-log-entry.success { color: var(--green-primary); }
+    .broadcast-log-entry.error { color: #ef5350; }
+    .broadcast-log-entry.info { color: var(--text-primary); }
+
+    /* Toast Element styling */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translate(-50%, 80px);
+      background: var(--bg-header);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 10px 20px;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 1010;
+    }
+
+    #toast.show {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+
+    #toast.ok {
+      border-color: var(--green-primary);
+    }
+
+    #toast.err {
+      border-color: #ef5350;
+    }
+
+    /* Responsive Queries */
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+      }
+      .chat-area {
+        display: none;
+        width: 100%;
+      }
+      body.chat-open .sidebar {
+        display: none;
+      }
+      body.chat-open .chat-area {
+        display: flex;
+      }
+      .back-btn {
+        display: block;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <header class="sidebar-header">
+        <div class="profile-info">
+          <div class="avatar">🛍️</div>
+          <div class="profile-details">
+            <h3>WhatsApp Admin</h3>
+            <span class="status-badge" id="status-badge">Connecting...</span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="qr-btn" class="icon-btn" title="QR Code Authentication">📱</button>
+          <button id="logout-btn" class="icon-btn" title="Logout">🚪</button>
+        </div>
+      </header>
+
+      <!-- Navigation Tabs -->
+      <div class="tab-navigation">
+        <button class="tab-btn active" id="tab-chats" onclick="switchTab('chats')">💬 Chats</button>
+        <button class="tab-btn" id="tab-broadcast" onclick="switchTab('broadcast')">📢 Broadcast</button>
+        <button class="tab-btn" id="tab-automation" onclick="switchTab('automation')">⚙️ Automation</button>
+        <button class="tab-btn" id="tab-apidocs" onclick="switchTab('apidocs')">📄 API Docs</button>
+      </div>
+
+      <div class="search-bar-container">
+        <div class="search-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="chat-search" placeholder="Search or start new chat" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="chats-list" id="chats-list">
+        <div class="loading-state">Loading chats...</div>
+      </div>
+    </aside>
+
+    <!-- Chat & CRM Areas -->
+    <main class="chat-area">
+      <!-- Fallback empty panel -->
+      <div class="no-chat-selected" id="no-chat-state">
+        <div class="welcome-container">
+          <div class="welcome-logo">💬</div>
+          <h2>WhatsApp Chat Dashboard</h2>
+          <p>Send and receive messages in real-time. Keep this dashboard open to manage your chat sessions.</p>
+          <div class="encrypted-badge">🔒 Secure Session Authenticated</div>
+        </div>
+      </div>
+
+      <!-- Active conversation panel -->
+      <div class="active-chat-container" id="active-chat-state" style="display: none;">
+        <header class="chat-header">
+          <button class="back-btn" id="back-btn">⬅️</button>
+          <div class="chat-avatar" id="chat-header-avatar">👤</div>
+          <div class="chat-details">
+            <h3 id="chat-header-name">Customer Name</h3>
+            <span id="chat-header-jid" class="chat-jid">number@c.us</span>
+          </div>
+        </header>
+
+        <!-- Messages Thread -->
+        <div class="messages-thread" id="messages-thread">
+          <!-- Messages will be injected here -->
+        </div>
+
+        <!-- Chat Input -->
+        <footer class="message-input-area">
+          <form id="message-form" class="message-form">
+            <input type="text" id="message-input" placeholder="Type a message" autocomplete="off" required>
+            <button type="submit" class="send-btn">
+              <span class="send-icon">➤</span>
+            </button>
+          </form>
+        </footer>
+      </div>
+
+      <!-- Broadcast View -->
+      <div class="tab-panel-container" id="broadcast-panel" style="display: none;">
+        <div class="panel-header">
+          <h2>📢 Message Broadcasting</h2>
+          <p>Send customized messages to multiple contacts using Excel, CSV, or direct input.</p>
+        </div>
+        
+        <div class="card-grid">
+          <!-- Left Card: Broadcast settings -->
+          <div class="panel-card">
+            <h3>⚙️ Broadcast Setup</h3>
+            <div class="form-row">
+              <label for="import-file">Upload Contacts File (.xlsx, .xls, .csv)</label>
+              <input type="file" id="import-file" accept=".xlsx, .xls, .csv">
+              <span style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; display: block;">
+                File must have a header row. Columns will be available as dynamic variables (e.g. `{Name}`, `{Phone}`).
+              </span>
+            </div>
+            
+            <div class="form-row">
+              <label for="direct-numbers">Or Direct Numbers (one per line, with country code)</label>
+              <textarea id="direct-numbers" placeholder="919048186012&#10;919876543210" style="min-height: 80px;"></textarea>
+            </div>
+            
+            <div class="form-row">
+              <label for="broadcast-msg-template">Message Template</label>
+              <textarea id="broadcast-msg-template" placeholder="Hello {Name}, this is an automated broadcast!"></textarea>
+              <span style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; display: block;">
+                Use brackets like `{Name}` to substitute row variables.
+              </span>
+            </div>
+            
+            <div class="form-row">
+              <label for="broadcast-delay">Delay between messages (seconds)</label>
+              <input type="number" id="broadcast-delay" min="1" max="120" value="5">
+              <span style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; display: block;">
+                A dynamic random delay of ±20% is added to emulate human typing speed and reduce blocking risks.
+              </span>
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-top: 20px;">
+              <button id="start-broadcast-btn" class="btn-primary" onclick="startBroadcast()">🚀 Start Broadcast</button>
+              <button id="stop-broadcast-btn" class="btn-danger" onclick="stopBroadcast()" disabled>⏹ Stop</button>
+            </div>
+          </div>
+          
+          <!-- Right Card: Status & Progress -->
+          <div class="panel-card">
+            <h3>📊 Delivery Progress</h3>
+            
+            <div class="broadcast-stats">
+              <div class="stat-card">
+                <div class="stat-val" id="stat-total">0</div>
+                <div class="stat-label">Total</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-val" id="stat-pending" style="color: var(--text-secondary);">0</div>
+                <div class="stat-label">Pending</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-val" id="stat-sent" style="color: var(--green-primary);">0</div>
+                <div class="stat-label">Sent</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-val" id="stat-failed" style="color: #ef5350;">0</div>
+                <div class="stat-label">Failed</div>
+              </div>
+            </div>
+            
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="broadcast-progress-bar"></div>
+            </div>
+            
+            <h4 style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">Activity Logs</h4>
+            <div class="broadcast-logs" id="broadcast-logs-container">
+              <div class="broadcast-log-entry info">Logs will appear here when the broadcast starts...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Automation View -->
+      <div class="tab-panel-container" id="automation-panel" style="display: none;">
+        <div class="panel-header">
+          <h2>🤖 AI Auto-Reply Automation</h2>
+          <p>Configure automated AI responses for incoming WhatsApp messages using OpenRouter LLMs.</p>
+        </div>
+        
+        <div class="card-grid full-width">
+          <div class="panel-card">
+            <div class="switch-wrapper">
+              <div class="switch-label-details">
+                <h4>Enable AI Autoreply</h4>
+                <p>Turn automated AI customer responses on or off globally.</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="ai-toggle">
+                <span class="slider"></span>
+              </label>
+            </div>
+            
+            <div class="form-row">
+              <label for="ai-api-key">OpenRouter API Key</label>
+              <input type="password" id="ai-api-key" placeholder="sk-or-v1-...">
+              <span style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; display: block;">
+                Obtain an API key from <a href="https://openrouter.ai/keys" target="_blank" style="color: var(--green-light); text-decoration: none;">openrouter.ai</a>.
+              </span>
+            </div>
+
+            <div class="form-row">
+              <label for="ai-model">AI Model</label>
+              <select id="ai-model">
+                <option value="google/gemma-2-9b-it:free">google/gemma-2-9b-it:free (Fast, Free)</option>
+                <option value="meta-llama/llama-3-8b-instruct:free">meta-llama/llama-3-8b-instruct:free (Accurate, Free)</option>
+                <option value="qwen/qwen-2.5-72b-instruct:free">qwen/qwen-2.5-72b-instruct:free (Premium, Free)</option>
+                <option value="google/gemma-4-26b-a4b-it:free">google/gemma-4-26b-a4b-it:free (Premium, Free)</option>
+                <option value="openrouter/auto">openrouter/auto (Auto routing)</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label for="ai-system-prompt">AI Prompt Context (System Instructions)</label>
+              <textarea id="ai-system-prompt" style="min-height: 250px;" placeholder="Define the AI persona, company info, products details, rules, and reply instructions..."></textarea>
+            </div>
+            
+            <div style="margin-top: 20px;">
+              <button class="btn-primary" onclick="saveAutomationConfig()">💾 Save Configuration</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Docs View -->
+      <div class="tab-panel-container" id="apidocs-panel" style="display: none;">
+        <div class="panel-header">
+          <h2>📄 Developer API Documentation</h2>
+          <p>Integrate your WhatsApp automation client with external CRM, ERP, or billing applications.</p>
+        </div>
+        
+        <div class="card-grid full-width">
+          <div class="panel-card">
+            <h3>🔑 Authentication Secret</h3>
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">
+              All HTTP REST requests must include your API key. You can supply it in the headers or as a query parameter.
+            </p>
+            <div class="form-row">
+              <label>Your WA_SECRET Key</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="api-docs-secret" readonly style="font-family: monospace; background: rgba(0,0,0,0.25);">
+                <button class="btn-primary" onclick="copyDocsSecret()" style="white-space: nowrap;">📋 Copy Key</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <h3>✉️ Send Text/Media Message</h3>
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">
+              Send custom plain-text messages or media files (images, PDFs, documents) via HTTP POST.
+            </p>
+            <div class="form-row">
+              <span style="background: #00e676; color: black; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">POST</span>
+              <span style="font-family: monospace; font-size: 0.9rem; font-weight: bold; margin-left: 8px;" id="api-docs-endpoint-url">/api/send-message</span>
+            </div>
+            
+            <h4 style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 16px; margin-bottom: 6px;">Request Headers</h4>
+            <div class="code-block" style="color: #bbb; background: #111b21;">
+              Content-Type: application/json<br>
+              x-wa-secret: <span class="docs-secret-placeholder">your-secret-key</span>
+            </div>
+
+            <h4 style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 16px; margin-bottom: 6px;">Request Payload (JSON)</h4>
+            <div class="code-block" style="color: #bbb; background: #111b21;">
+{
+  "phone": "919048186012",
+  "message": "Hello from the API!",
+  "countryCode": "91"
+}
+            </div>
+
+            <h4 style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 16px; margin-bottom: 6px;">cURL Example</h4>
+            <div class="code-block">
+              <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+              <span id="curl-text">curl -X POST -H "Content-Type: application/json" \
+  -H "x-wa-secret: <span class="docs-secret-placeholder">your-secret-key</span>" \
+  -d '{"phone": "919048186012", "message": "Hello from the API!"}' \
+  <span id="docs-curl-base-url">http://localhost:3001</span>/api/send-message</span>
+            </div>
+
+            <h4 style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 16px; margin-bottom: 6px;">Node.js Fetch Example</h4>
+            <div class="code-block">
+              <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+              <span id="node-text">fetch('<span id="docs-node-base-url">http://localhost:3001</span>/api/send-message', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-wa-secret': '<span class="docs-secret-placeholder">your-secret-key</span>'
+  },
+  body: JSON.stringify({
+    phone: '919048186012',
+    message: 'Hello from Node!'
+  })
+})
+.then(res => res.json())
+.then(data => console.log(data));</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- QR Auth Overlay Modal -->
+  <div class="modal" id="qr-modal">
+    <div class="modal-content">
+      <span class="close-btn" id="close-modal">&times;</span>
+      <h2>WhatsApp Login</h2>
+      <p style="font-size: 0.88rem; color: var(--text-secondary);">Authenticate the WhatsApp client by scanning the QR code.</p>
+      <div class="qr-container" id="modal-qr-container">
+        <div class="loading-spinner"></div>
+      </div>
+      <p class="qr-instructions">Open WhatsApp on your phone &gt; Tap Menu or Settings &gt; Select Linked Devices &gt; Tap Link a Device and point your phone camera here.</p>
+    </div>
+  </div>
+
+  <!-- Toast Element -->
+  <div id="toast"></div>
+
+  <script>
+    let activeJid = null;
+    let chatsCached = [];
+    let isReady = false;
+    let qrData = null;
+    let messagePollInterval = null;
+    
+    // Tabbed CRM State
+    let currentTab = 'chats';
+    let broadcastList = [];
+    let isBroadcasting = false;
+    let broadcastIndex = 0;
+    let broadcastTimer = null;
+    let waSecretKey = '';
+
+    // Element Caches
+    const statusBadge = document.getElementById('status-badge');
+    const chatsListEl = document.getElementById('chats-list');
+    const noChatState = document.getElementById('no-chat-state');
+    const activeChatState = document.getElementById('active-chat-state');
+    const chatHeaderName = document.getElementById('chat-header-name');
+    const chatHeaderJid = document.getElementById('chat-header-jid');
+    const chatHeaderAvatar = document.getElementById('chat-header-avatar');
+    const messagesThread = document.getElementById('messages-thread');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const searchInput = document.getElementById('chat-search');
+    
+    // Modal elements
+    const qrBtn = document.getElementById('qr-btn');
+    const qrModal = document.getElementById('qr-modal');
+    const closeModal = document.getElementById('close-modal');
+    const modalQrContainer = document.getElementById('modal-qr-container');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    // Add upload change listener
+    document.getElementById('import-file').addEventListener('change', handleFileUpload);
+
+    /* ─── Fetch Helper with Auth credentials ─── */
+    async function apiFetch(url, options = {}) {
+      try {
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+          window.location.href = '/login';
+          throw new Error('Unauthorized');
+        }
+        return response;
+      } catch (err) {
+        console.error('Fetch error:', err.message);
+        throw err;
+      }
+    }
+
+    /* ─── Status Checking & QR Rendering ─── */
+    async function checkStatus() {
+      try {
+        const res = await apiFetch('/status');
+        const data = await res.json();
+        
+        isReady = data.ready;
+        qrData = data.qr;
+        waSecretKey = data.waSecret || '';
+
+        // Expose WA_SECRET key to API Docs
+        const secretInput = document.getElementById('api-docs-secret');
+        if (secretInput) secretInput.value = waSecretKey;
+
+        const placeholders = document.querySelectorAll('.docs-secret-placeholder');
+        placeholders.forEach(el => {
+          el.textContent = waSecretKey || 'your-secret-key';
+        });
+
+        // Set live origins in docs snippets
+        const currentOrigin = window.location.origin;
+        document.getElementById('docs-curl-base-url').textContent = currentOrigin;
+        document.getElementById('docs-node-base-url').textContent = currentOrigin;
+
+        if (isReady) {
+          statusBadge.textContent = 'Connected';
+          statusBadge.className = 'status-badge connected';
+          if (qrModal.style.display === 'flex') {
+            qrModal.style.display = 'none';
+            toast('WhatsApp successfully connected!', 'ok');
+          }
+        } else {
+          statusBadge.textContent = qrData ? 'Scan QR Code' : 'Connecting...';
+          statusBadge.className = 'status-badge';
+          
+          if (qrModal.style.display === 'flex') {
+            renderQrCodeInModal();
+          }
+        }
+      } catch (e) {
+        statusBadge.textContent = 'Offline';
+        statusBadge.className = 'status-badge';
+      }
+    }
+
+    function renderQrCodeInModal() {
+      if (isReady) {
+        modalQrContainer.innerHTML = `<div style="padding: 40px; color: var(--green-primary); font-weight: bold;">✓ Connected</div>`;
+      } else if (qrData) {
+        modalQrContainer.innerHTML = `<img src="${qrData}" alt="WhatsApp Scan QR" />`;
+      } else {
+        modalQrContainer.innerHTML = `
+          <div class="loading-spinner"></div>
+          <p style="margin-top: 140px; font-size: 0.8rem; color: var(--text-secondary);">Waiting for WhatsApp QR generation...</p>
+        `;
+      }
+    }
+
+    /* ─── CRM Tab Switching ─── */
+    function switchTab(tabName) {
+      currentTab = tabName;
+      
+      // Update Tab Styles
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById(`tab-${tabName}`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      // Hide all panels
+      noChatState.style.display = 'none';
+      activeChatState.style.display = 'none';
+      document.getElementById('broadcast-panel').style.display = 'none';
+      document.getElementById('automation-panel').style.display = 'none';
+      document.getElementById('apidocs-panel').style.display = 'none';
+
+      // Load specific tab behavior
+      if (tabName === 'chats') {
+        if (activeJid) {
+          activeChatState.style.display = 'flex';
+          loadMessages(activeJid, true);
+          
+          if (messagePollInterval) clearInterval(messagePollInterval);
+          messagePollInterval = setInterval(() => loadMessages(activeJid, false), 3000);
+        } else {
+          noChatState.style.display = 'flex';
+        }
+      } else {
+        // Stop background thread polling for message view when looking at configs
+        if (messagePollInterval) {
+          clearInterval(messagePollInterval);
+          messagePollInterval = null;
+        }
+
+        document.getElementById(`${tabName}-panel`).style.display = 'flex';
+
+        if (tabName === 'automation') {
+          loadAutomationConfig();
+        }
+      }
+    }
+
+    /* ─── AI Autoreply Configuration ─── */
+    async function loadAutomationConfig() {
+      try {
+        const res = await apiFetch('/api/automation/config');
+        if (res.ok) {
+          const config = await res.json();
+          document.getElementById('ai-toggle').checked = !!config.enabled;
+          document.getElementById('ai-api-key').value = config.openRouterApiKey || '';
+          document.getElementById('ai-model').value = config.model || 'google/gemma-2-9b-it:free';
+          document.getElementById('ai-system-prompt').value = config.systemPrompt || '';
+        }
+      } catch (err) {
+        console.error('Failed to load automation settings:', err.message);
+      }
+    }
+
+    async function saveAutomationConfig() {
+      const enabled = document.getElementById('ai-toggle').checked;
+      const openRouterApiKey = document.getElementById('ai-api-key').value.trim();
+      const model = document.getElementById('ai-model').value;
+      const systemPrompt = document.getElementById('ai-system-prompt').value;
+
+      try {
+        const res = await apiFetch('/api/automation/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled, openRouterApiKey, model, systemPrompt })
+        });
+        if (res.ok) {
+          toast('Configuration saved successfully!', 'ok');
+        } else {
+          const data = await res.json();
+          toast(data.error || 'Failed to save configuration', 'err');
+        }
+      } catch (err) {
+        toast('Error saving configuration: ' + err.message, 'err');
+      }
+    }
+
+    /* ─── Excel/CSV Contacts Upload ─── */
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const data = evt.target.result;
+        try {
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet);
+
+          if (json.length === 0) {
+            toast('The imported file is empty.', 'err');
+            return;
+          }
+
+          broadcastList = json;
+          const columns = Object.keys(json[0]);
+          
+          clearBroadcastLogs();
+          addBroadcastLog(`Imported ${json.length} contacts successfully. Columns: ${columns.join(', ')}`, 'success');
+          updateBroadcastStats();
+          toast(`Successfully loaded ${json.length} contacts!`, 'ok');
+        } catch (err) {
+          addBroadcastLog(`Error parsing file: ${err.message}`, 'error');
+          toast('Error reading file. Confirm it is a valid Excel or CSV.', 'err');
+        }
+      };
+      
+      reader.onerror = function() {
+        toast('File read error.', 'err');
+      };
+
+      reader.readAsBinaryString(file);
+    }
+
+    function parseDirectNumbers() {
+      const textarea = document.getElementById('direct-numbers');
+      if (!textarea) return [];
+      const lines = textarea.value.split('\n');
+      const list = [];
+      lines.forEach(line => {
+        const num = line.replace(/\D/g, '');
+        if (num.length >= 10) {
+          list.push({ Phone: num, Name: `Receiver ${num.slice(-4)}` });
+        }
+      });
+      return list;
+    }
+
+    function updateBroadcastStats(pending = null, sent = 0, failed = 0) {
+      const total = broadcastList.length;
+      document.getElementById('stat-total').textContent = total;
+      
+      const pend = pending !== null ? pending : total;
+      document.getElementById('stat-pending').textContent = pend;
+      document.getElementById('stat-sent').textContent = sent;
+      document.getElementById('stat-failed').textContent = failed;
+
+      const progressFill = document.getElementById('broadcast-progress-bar');
+      if (progressFill) {
+        const percent = total > 0 ? ((sent + failed) / total) * 100 : 0;
+        progressFill.style.width = `${percent}%`;
+      }
+    }
+
+    function addBroadcastLog(text, type = 'info') {
+      const container = document.getElementById('broadcast-logs-container');
+      if (!container) return;
+      const div = document.createElement('div');
+      div.className = `broadcast-log-entry ${type}`;
+      
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      div.innerHTML = `[${time}] ${escapeHtml(text)}`;
+      
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function clearBroadcastLogs() {
+      const container = document.getElementById('broadcast-logs-container');
+      if (container) container.innerHTML = '';
+    }
+
+    /* ─── Sequential Broadcast Execution ─── */
+    function startBroadcast() {
+      if (isBroadcasting) return;
+
+      const template = document.getElementById('broadcast-msg-template').value.trim();
+      if (!template) {
+        toast('Please enter a message template.', 'err');
+        return;
+      }
+
+      // Read from direct textarea if no excel file loaded
+      if (broadcastList.length === 0) {
+        const direct = parseDirectNumbers();
+        if (direct.length === 0) {
+          toast('Please load a contacts file or input phone numbers.', 'err');
+          return;
+        }
+        broadcastList = direct;
+      }
+
+      const delaySec = parseFloat(document.getElementById('broadcast-delay').value) || 5;
+      
+      isBroadcasting = true;
+      broadcastIndex = 0;
+      
+      // Toggle control elements
+      document.getElementById('start-broadcast-btn').disabled = true;
+      document.getElementById('stop-broadcast-btn').disabled = false;
+      document.getElementById('import-file').disabled = true;
+      document.getElementById('direct-numbers').disabled = true;
+      document.getElementById('broadcast-msg-template').disabled = true;
+      document.getElementById('broadcast-delay').disabled = true;
+
+      clearBroadcastLogs();
+      addBroadcastLog(`Starting campaign broadcast to ${broadcastList.length} contacts...`, 'info');
+      
+      let sentCount = 0;
+      let failedCount = 0;
+      updateBroadcastStats(broadcastList.length, 0, 0);
+
+      function sendNext() {
+        if (!isBroadcasting) return;
+        
+        if (broadcastIndex >= broadcastList.length) {
+          addBroadcastLog(`Campaign broadcast completed! Total targets: ${broadcastList.length}`, 'success');
+          toast('Broadcast complete!', 'ok');
+          stopBroadcast();
+          return;
+        }
+
+        const row = broadcastList[broadcastIndex];
+        
+        // Match phone columns dynamically
+        let phone = '';
+        for (const key in row) {
+          const lowerKey = key.toLowerCase();
+          if (lowerKey === 'phone' || lowerKey === 'number' || lowerKey === 'telephone' || lowerKey === 'mobile' || lowerKey === 'phone number' || lowerKey === 'cnumber') {
+            phone = String(row[key]).replace(/\D/g, '');
+            break;
+          }
+        }
+        
+        if (!phone) {
+          for (const key in row) {
+            const val = String(row[key]).replace(/\D/g, '');
+            if (val.length >= 10 && val.length <= 15) {
+              phone = val;
+              break;
+            }
+          }
+        }
+
+        if (!phone) {
+          addBroadcastLog(`Row #${broadcastIndex + 1}: Skipped (No valid phone found).`, 'error');
+          failedCount++;
+          broadcastIndex++;
+          updateBroadcastStats(broadcastList.length - (sentCount + failedCount), sentCount, failedCount);
+          sendNext();
+          return;
+        }
+
+        // Parse placeholders
+        let message = template;
+        for (const key in row) {
+          const placeholder = `{${key}}`;
+          message = message.replace(new RegExp(placeholder, 'gi'), row[key]);
+        }
+
+        addBroadcastLog(`Sending to +${phone}...`, 'info');
+
+        apiFetch('/api/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, message })
+        })
+        .then(res => {
+          if (res.ok) {
+            addBroadcastLog(`Row #${broadcastIndex + 1} (+${phone}): Sent.`, 'success');
+            sentCount++;
+          } else {
+            return res.json().then(data => {
+              throw new Error(data.error || 'Server rejected request');
+            });
+          }
+        })
+        .catch(err => {
+          addBroadcastLog(`Row #${broadcastIndex + 1} (+${phone}) Failed: ${err.message}`, 'error');
+          failedCount++;
+        })
+        .finally(() => {
+          broadcastIndex++;
+          updateBroadcastStats(broadcastList.length - (sentCount + failedCount), sentCount, failedCount);
+          
+          if (isBroadcasting) {
+            // Emulate variance in interval spacing
+            const variance = (Math.random() * 0.4 - 0.2) * delaySec;
+            const finalDelay = Math.max(1, delaySec + variance) * 1000;
+            broadcastTimer = setTimeout(sendNext, finalDelay);
+          }
+        });
+      }
+
+      sendNext();
+    }
+
+    function stopBroadcast() {
+      isBroadcasting = false;
+      if (broadcastTimer) {
+        clearTimeout(broadcastTimer);
+        broadcastTimer = null;
+      }
+
+      document.getElementById('start-broadcast-btn').disabled = false;
+      document.getElementById('stop-broadcast-btn').disabled = true;
+      document.getElementById('import-file').disabled = false;
+      document.getElementById('direct-numbers').disabled = false;
+      document.getElementById('broadcast-msg-template').disabled = false;
+      document.getElementById('broadcast-delay').disabled = false;
+      
+      addBroadcastLog('Broadcast cancelled/stopped.', 'info');
+    }
+
+    /* ─── Documentation Key Helpers ─── */
+    function copyDocsSecret() {
+      const copyText = document.getElementById("api-docs-secret");
+      copyText.select();
+      copyText.setSelectionRange(0, 9999);
+      navigator.clipboard.writeText(copyText.value);
+      toast("API Secret copied to clipboard!", "ok");
+    }
+
+    function copyCode(btn) {
+      const codeSpan = btn.nextElementSibling;
+      const textToCopy = codeSpan.innerText || codeSpan.textContent;
+      navigator.clipboard.writeText(textToCopy);
+      
+      const originalText = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = originalText; }, 2000);
+    }
+
+    /* ─── Chat Listing & Rendering ─── */
+    async function loadChats() {
+      if (!isReady) return;
+      try {
+        const res = await apiFetch('/api/chats');
+        const chats = await res.json();
+        chatsCached = chats;
+        renderChatsList(chats);
+      } catch (err) {
+        console.error('Failed to load chats:', err.message);
+      }
+    }
+
+    function renderChatsList(chats) {
+      const searchTerm = searchInput.value.toLowerCase().trim();
+      const filtered = chats.filter(chat => {
+        const name = (chat.name || '').toLowerCase();
+        const jid = (chat.id || '').toLowerCase();
+        return name.includes(searchTerm) || jid.includes(searchTerm);
+      });
+
+      if (filtered.length === 0) {
+        chatsListEl.innerHTML = `<div class="empty-state">No chats found</div>`;
+        return;
+      }
+
+      chatsListEl.innerHTML = filtered.map(chat => {
+        const timeStr = formatTime(chat.timestamp);
+        const activeClass = activeJid === chat.id ? 'active' : '';
+        const unreadBadgeHtml = chat.unreadCount > 0 
+          ? `<span class="unread-badge">${chat.unreadCount}</span>` 
+          : '';
+        
+        let previewText = '';
+        if (chat.lastMessage) {
+          const prefix = chat.lastMessage.fromMe ? 'You: ' : '';
+          previewText = prefix + (chat.lastMessage.body || `[${chat.lastMessage.type || 'Media'}]`);
+        } else {
+          previewText = 'No messages';
+        }
+
+        const avatarInitial = (chat.name || chat.id.split('@')[0] || '?')[0].toUpperCase();
+
+        return `
+          <div class="chat-item ${activeClass}" onclick="selectChat('${chat.id}', '${escapeHtml(chat.name || chat.id.split('@')[0])}')">
+            <div class="chat-item-avatar">${avatarInitial}</div>
+            <div class="chat-item-content">
+              <div class="chat-item-top">
+                <span class="chat-name">${escapeHtml(chat.name || chat.id.split('@')[0])}</span>
+                <span class="chat-time">${timeStr}</span>
+              </div>
+              <div class="chat-item-bottom">
+                <span class="chat-preview ${chat.lastMessage && chat.lastMessage.fromMe ? 'from-me' : ''}">${escapeHtml(previewText)}</span>
+                ${unreadBadgeHtml}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* ─── Messages Thread Handling ─── */
+    async function selectChat(jid, name) {
+      activeJid = jid;
+      chatHeaderName.textContent = name;
+      chatHeaderJid.textContent = jid;
+      chatHeaderAvatar.textContent = name[0].toUpperCase();
+
+      const items = document.querySelectorAll('.chat-item');
+      items.forEach(item => item.classList.remove('active'));
+      const activeItem = Array.from(items).find(el => el.innerHTML.includes(jid));
+      if (activeItem) activeItem.classList.add('active');
+
+      document.body.classList.add('chat-open');
+
+      // Shift display tab back to messaging pane
+      switchTab('chats');
+    }
+
+    let messagesCache = [];
+
+    async function loadMessages(jid, forceScroll = false) {
+      if (activeJid !== jid || currentTab !== 'chats') return;
+      try {
+        const res = await apiFetch(`/api/chats/${jid}/messages`);
+        const messages = await res.json();
+        
+        const listStr = JSON.stringify(messages);
+        const cachedStr = JSON.stringify(messagesCache);
+        
+        if (listStr !== cachedStr || forceScroll) {
+          messagesCache = messages;
+          renderMessages(messages, forceScroll);
+        }
+      } catch (err) {
+        console.error('Failed to load messages:', err.message);
+      }
+    }
+
+    function renderMessages(messages, forceScroll) {
+      const threadHtml = messages.map(msg => {
+        const timeStr = new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const bubbleType = msg.fromMe ? 'outgoing' : 'incoming';
+        const mediaTagHtml = msg.hasMedia 
+          ? `<span class="message-media-tag">📁 Media Attachment (${escapeHtml(msg.type || 'attachment')})</span>` 
+          : '';
+        const ticksHtml = msg.fromMe ? `<span class="message-ticks">✓✓</span>` : '';
+
+        return `
+          <div class="message-bubble ${bubbleType}">
+            ${mediaTagHtml}
+            <div class="message-text">${escapeHtml(msg.body || '')}</div>
+            <div class="message-meta">
+              <span>${timeStr}</span>
+              ${ticksHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      messagesThread.innerHTML = threadHtml || `<div class="empty-state">No messages in this chat</div>`;
+      scrollToBottom(forceScroll);
+    }
+
+    function scrollToBottom(force = false) {
+      const isNearBottom = messagesThread.scrollHeight - messagesThread.scrollTop - messagesThread.clientHeight < 200;
+      if (force || isNearBottom) {
+        messagesThread.scrollTop = messagesThread.scrollHeight;
+      }
+    }
+
+    /* ─── Send Message ─── */
+    messageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = messageInput.value.trim();
+      if (!text || !activeJid) return;
+
+      messageInput.value = '';
+      const tempJid = activeJid;
+
+      try {
+        const res = await apiFetch(`/api/chats/${tempJid}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          await loadMessages(tempJid, true);
+          loadChats();
+        } else {
+          toast(data.error || 'Failed to send message', 'err');
+        }
+      } catch (err) {
+        toast('Error: ' + err.message, 'err');
+      }
+    });
+
+    /* ─── Interactive Filters & Events ─── */
+    searchInput.addEventListener('input', () => {
+      renderChatsList(chatsCached);
+    });
+
+    document.getElementById('back-btn').addEventListener('click', () => {
+      document.body.classList.remove('chat-open');
+      activeJid = null;
+      if (messagePollInterval) {
+        clearInterval(messagePollInterval);
+        messagePollInterval = null;
+      }
+    });
+
+    qrBtn.addEventListener('click', () => {
+      qrModal.style.display = 'flex';
+      renderQrCodeInModal();
+    });
+
+    closeModal.addEventListener('click', () => {
+      qrModal.style.display = 'none';
+    });
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to log out?')) {
+          try {
+            const res = await apiFetch('/api/logout', { method: 'POST' });
+            if (res.ok) {
+              window.location.href = '/login';
+            } else {
+              toast('Logout failed', 'err');
+            }
+          } catch (err) {
+            toast('Error: ' + err.message, 'err');
+          }
+        }
+      });
+    }
+
+    window.addEventListener('click', (e) => {
+      if (e.target === qrModal) {
+        qrModal.style.display = 'none';
+      }
+    });
+
+    /* ─── Utility Helpers ─── */
+    function formatTime(unixTimestamp) {
+      if (!unixTimestamp) return '';
+      const date = new Date(unixTimestamp * 1000);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      if (isToday) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      if (date.toDateString() === yesterday.toDateString()) {
+        return 'Yesterday';
+      }
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    let toastTimer;
+    function toast(msg, type = 'ok') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'show ' + type;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.className = ''; }, 3200);
+    }
+
+    // Startup Polls
+    checkStatus();
+    setInterval(checkStatus, 5000);
+
+    setTimeout(() => {
+      loadChats();
+      setInterval(loadChats, 5000);
+    }, 1000);
+  </script>
+</body>
+</html>

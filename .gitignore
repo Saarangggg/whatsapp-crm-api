@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+/package-lock.json
+
+# Local Environment Credentials
+.env
+
+# WhatsApp Active Sessions (Private authentication tokens)
+.ww-session/
+
+# System and Service Logs
+logs/
+*.log
+
+# Diagnostic screenshots/backups
+login_backup.html
+*.html.bak
+
+# OS Metadata
+.DS_Store
+Thumbs.db

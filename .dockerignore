@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+logs
+.env
+.git
+.gitignore
+README.md
+*.vbs
+*.bat
+.ww-session
+.ww-cache
+.wwebjs_auth
+.wwebjs_cache

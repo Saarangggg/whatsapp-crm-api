@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — WhatsApp Service</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-app: #0b141a;
+      --bg-card: #111b21;
+      --border-color: #222e35;
+      --text-primary: #e9edef;
+      --text-secondary: #8696a0;
+      --text-muted: #667781;
+      --green-primary: #00a884;
+      --green-hover: #008f72;
+      --green-glow: rgba(0, 168, 132, 0.25);
+      --red-primary: #ef5350;
+      --red-glow: rgba(239, 83, 80, 0.2);
+      --input-bg: #2a3942;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg-app);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Subtle background grid pattern to match main UI style */
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: radial-gradient(var(--border-color) 1px, transparent 0);
+      background-size: 24px 24px;
+      opacity: 0.5;
+      z-index: 1;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 420px;
+      padding: 24px;
+      z-index: 2;
+      animation: form-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes form-enter {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 40px 32px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Top decorative glow gradient line */
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--green-primary), #00e676);
+    }
+
+    .brand-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .brand-logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(0, 168, 132, 0.1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: var(--green-primary);
+      margin-bottom: 16px;
+      box-shadow: 0 0 20px rgba(0, 168, 132, 0.05);
+      border: 1px solid rgba(0, 168, 132, 0.15);
+    }
+
+    .brand-header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-header p {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      pointer-events: none;
+      transition: color 0.2s;
+    }
+
+    .form-group input {
+      width: 100%;
+      height: 48px;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      padding: 0 16px 0 42px;
+      outline: none;
+      font-family: inherit;
+      font-size: 0.92rem;
+      transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+    }
+
+    .form-group input:focus {
+      border-color: var(--green-primary);
+      background-color: rgba(42, 57, 66, 0.8);
+      box-shadow: 0 0 0 3px var(--green-glow);
+    }
+
+    .form-group input:focus + .input-icon {
+      color: var(--green-primary);
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 14px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 4px;
+    }
+
+    .toggle-password:hover {
+      color: var(--text-primary);
+    }
+
+    .login-btn {
+      width: 100%;
+      height: 48px;
+      background: var(--green-primary);
+      border: none;
+      border-radius: 8px;
+      color: #111b21;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+      margin-top: 8px;
+    }
+
+    .login-btn:hover {
+      background: var(--green-hover);
+      box-shadow: 0 4px 12px rgba(0, 168, 132, 0.2);
+    }
+
+    .login-btn:active {
+      transform: scale(0.98);
+    }
+
+    .login-btn:disabled {
+      background: var(--border-color);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* Error alert styles */
+    .alert {
+      display: none;
+      background: var(--red-glow);
+      border: 1px solid var(--red-primary);
+      color: var(--text-primary);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 24px;
+      align-items: flex-start;
+      gap: 10px;
+      animation: shake 0.35s ease-in-out;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+
+    .alert-icon {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .alert-message {
+      flex: 1;
+      line-height: 1.4;
+    }
+
+    /* Spinner animation */
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid transparent;
+      border-top-color: #111b21;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .footer-text {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 0.2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container">
+    <div class="login-card">
+      <div class="brand-header">
+        <div class="brand-logo">🛍️</div>
+        <h1>WhatsApp Service</h1>
+        <p>WhatsApp Service Portal Login</p>
+      </div>
+
+      <div class="alert" id="error-alert">
+        <span class="alert-icon">⚠️</span>
+        <span class="alert-message" id="error-msg">Invalid credentials.</span>
+      </div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input type="text" id="username" name="username" placeholder="Enter username" required autocomplete="username">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="password" name="password" placeholder="Enter password" required autocomplete="current-password">
+            <button type="button" class="toggle-password" id="toggle-password" title="Toggle password visibility">👁️</button>
+          </div>
+        </div>
+
+        <button type="submit" class="login-btn" id="submit-btn">
+          <span class="spinner" id="btn-spinner"></span>
+          <span id="btn-text">Sign In</span>
+        </button>
+      </form>
+
+      <div class="footer-text">
+        🔒 Secure End-to-End Session Authorization
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('login-form');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const togglePasswordBtn = document.getElementById('toggle-password');
+    const errorAlert = document.getElementById('error-alert');
+    const errorMsg = document.getElementById('error-msg');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnSpinner = document.getElementById('btn-spinner');
+    const btnText = document.getElementById('btn-text');
+
+    // Toggle password visibility
+    togglePasswordBtn.addEventListener('click', () => {
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+      togglePasswordBtn.textContent = type === 'password' ? '👁️' : '🙈';
+    });
+
+    // Form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // Reset errors
+      errorAlert.style.display = 'none';
+      
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      
+      if (!username || !password) return;
+      
+      // Set loading state
+      submitBtn.disabled = true;
+      btnSpinner.style.display = 'block';
+      btnText.textContent = 'Signing In...';
+      
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          // Success! Redirect to client page
+          window.location.href = '/client';
+        } else {
+          // Show error message
+          showError(data.error || 'Invalid credentials. Please try again.');
+        }
+      } catch (err) {
+        showError('Network error. Please check your connection and try again.');
+        console.error('Login error:', err);
+      } finally {
+        // Reset loading state
+        submitBtn.disabled = false;
+        btnSpinner.style.display = 'none';
+        btnText.textContent = 'Sign In';
+      }
+    });
+
+    function showError(message) {
+      errorMsg.textContent = message;
+      errorAlert.style.display = 'flex';
+      // Trigger animation re-run
+      errorAlert.style.animation = 'none';
+      errorAlert.offsetHeight; /* trigger reflow */
+      errorAlert.style.animation = null; 
+    }
+  </script>
+</body>
+</html>
