@@ -30,7 +30,7 @@ let automationConfig = {
   enabled: true,
   systemPrompt: 'You are a helpful customer service AI assistant.',
   openRouterApiKey: '',
-  model: 'google/gemma-2-9b-it:free'
+  model: 'openrouter/auto'
 };
 
 // Load configuration on startup
@@ -133,6 +133,34 @@ let client = null;
 let qrCodeData = null;
 let isReady = false;
 
+// Track phones that already received a greeting — only greet once per session
+const greetedPhones = new Set();
+
+// Per-sender conversation history: Map<phone, [{role, content}]>
+const conversationHistory = new Map();
+
+// Max messages to keep per conversation
+const MAX_HISTORY = 20;
+
+function addToHistory(phone, role, content) {
+  if (!conversationHistory.has(phone)) conversationHistory.set(phone, []);
+  const history = conversationHistory.get(phone);
+  history.push({ role, content });
+  // Trim to max window
+  if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
+}
+
+function clearHistory(phone) {
+  conversationHistory.delete(phone);
+  greetedPhones.delete(phone);
+}
+
+// Clean up old conversations every 30 minutes
+setInterval(() => {
+  conversationHistory.clear();
+  greetedPhones.clear();
+}, 30 * 60 * 1000);
+
 function initWhatsAppClient() {
   if (client) {
     log('Cleaning up existing WhatsApp client...');
@@ -196,7 +224,7 @@ function initWhatsAppClient() {
       // 2. AI Autoreply if enabled
       if (automationConfig.enabled && (automationConfig.openRouterApiKey || process.env.OPENROUTER_API_KEY)) {
         const senderPhone = msg.from.split('@')[0];
-        
+
         // Skip auto-reply for admin messages to prevent loops
         const adminPhone = (process.env.ADMIN_PHONE || '').replace(/\D/g, '');
         if (adminPhone && (senderPhone === adminPhone || adminPhone.endsWith(senderPhone) || senderPhone.endsWith(adminPhone))) {
@@ -204,7 +232,25 @@ function initWhatsAppClient() {
           return;
         }
 
-        await handleAiAutoreply(msg);
+        const userText = (msg.body || msg.caption || '').trim();
+        const msgLower = userText.toLowerCase();
+
+        // Handle stop/cancel — clear conversation and confirm
+        if (['stop', 'cancel', 'exit', 'quit', 'reset'].includes(msgLower)) {
+          clearHistory(senderPhone);
+          try {
+            await client.sendMessage(msg.from,
+              `✅ Conversation reset. Feel free to start over anytime! 😊`
+            );
+          } catch (e) { }
+          return;
+        }
+
+        // Track whether this is the first message from this sender
+        const isFirstMessage = !greetedPhones.has(senderPhone);
+        if (isFirstMessage) greetedPhones.add(senderPhone);
+
+        await handleAiAutoreply(msg, isFirstMessage);
       }
     } catch (e) {
       console.error('Failed to handle incoming WhatsApp message:', e.message);
@@ -246,16 +292,53 @@ function getSystemPrompt() {
 }
 
 // Generate response using OpenRouter and send reply
-async function handleAiAutoreply(msg) {
+async function handleAiAutoreply(msg, isFirstMessage = false) {
   const apiKey = automationConfig.openRouterApiKey || process.env.OPENROUTER_API_KEY;
-  const model = automationConfig.model || 'google/gemma-2-9b-it:free';
-  const systemPrompt = getSystemPrompt();
+  const model = automationConfig.model || 'openrouter/auto';
+  const basePrompt = getSystemPrompt();
   const senderPhone = msg.from.split('@')[0];
   const userText = (msg.body || msg.caption || '').trim();
 
   if (!userText) return;
 
-  log(`[AI Autoreply] Generating reply for ${senderPhone} using model ${model}...`);
+  // If no API key configured, notify the customer
+  if (!apiKey) {
+    log(`[AI Autoreply] No OpenRouter API key configured. Notifying customer ${senderPhone}.`);
+    try {
+      await client.sendMessage(msg.from,
+        `⚠️ AI assistant is not configured yet.\n\nPlease insert a valid OpenRouter API key in the *Settings* to enable automated responses.`
+      );
+    } catch (err) {
+      log(`[AI Autoreply] Failed to send no-key notice: ${err.message}`);
+    }
+    return;
+  }
+
+  // Build system prompt with booking instructions
+  const greetingInstruction = isFirstMessage
+    ? `\n\nThis is the customer's FIRST message. You may greet them briefly and naturally.`
+    : `\n\nIMPORTANT: This is NOT the customer's first message. Do NOT greet them. Do NOT say "Hi", "Hello", "I'm [name]", or any welcome phrase. Go straight to the point.`;
+
+  const bookingInstruction = `
+
+BOOKING CONFIRMATION RULES:
+- When you have collected all required booking details (Name, Phone, Service/Request, Date/Time) and the customer confirms (says "yes", "confirm", "ok", "correct", "done"), output a special tag on its own line:
+  [BOOKING_CONFIRMED: name="...", phone="...", service="...", datetime="..."]
+- After the tag, send a friendly confirmation message to the customer.
+- If the customer says "cancel", "stop", "exit", or "no" to cancel, output: [CANCEL]
+- Always remind the customer they can type *stop* or *cancel* anytime to exit.
+- Do NOT ask for details you already have in the conversation history.
+- Do NOT require vehicle/car info unless the business context specifically needs it.`;
+
+  const systemPrompt = basePrompt + greetingInstruction + bookingInstruction;
+
+  // Add user message to history
+  addToHistory(senderPhone, 'user', userText);
+
+  // Build messages array with full history
+  const history = conversationHistory.get(senderPhone) || [];
+
+  log(`[AI Autoreply] Generating reply for ${senderPhone} using model ${model}... (firstMessage=${isFirstMessage}, historyLen=${history.length})`);
 
   try {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -269,19 +352,74 @@ async function handleAiAutoreply(msg) {
         model: model,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userText }
+          ...history
         ]
       })
     });
 
     if (res.ok) {
       const aiData = await res.json();
-      const replyText = aiData?.choices?.[0]?.message?.content;
+      let replyText = aiData?.choices?.[0]?.message?.content;
       if (replyText) {
+        // ── Check for CANCEL tag ──────────────────────────────────────────
+        if (replyText.includes('[CANCEL]')) {
+          clearHistory(senderPhone);
+          const cleanReply = replyText.replace('[CANCEL]', '').trim() ||
+            `No problem! Conversation cancelled. Type anything to start again. 😊`;
+          await client.sendMessage(msg.from, cleanReply);
+          log(`[AI Autoreply] Conversation cancelled for ${senderPhone}.`);
+          return;
+        }
+
+        // ── Check for BOOKING_CONFIRMED tag ───────────────────────────────
+        const bookingTagRegex = /\[BOOKING_CONFIRMED:\s*name="([^"]*)",\s*phone="([^"]*)",\s*service="([^"]*)",\s*datetime="([^"]*)"\]/i;
+        const bookingMatch = replyText.match(bookingTagRegex);
+        if (bookingMatch) {
+          const [, bName, bPhone, bService, bDatetime] = bookingMatch;
+          const cleanReply = replyText.replace(bookingTagRegex, '').replace(/\n{3,}/g, '\n\n').trim();
+
+          // Resolve the real WA link — use bPhone if senderPhone is a @lid internal ID
+          const isLid = (msg.from || '').includes('@lid');
+          const waLinkPhone = isLid
+            ? bPhone.replace(/\D/g, '')       // use customer's provided phone
+            : senderPhone;                     // use real @c.us number
+
+          // Notify admin
+          const adminPhone = (process.env.ADMIN_PHONE || '').replace(/\D/g, '');
+          if (adminPhone && client) {
+            const adminJid = `${adminPhone}@c.us`;
+            const adminMsg =
+              `📅 *New Booking Request!*\n` +
+              `─────────────────\n` +
+              `👤 *Name:* ${bName}\n` +
+              `📞 *Phone:* ${bPhone}\n` +
+              `🛠️ *Service:* ${bService}\n` +
+              `📆 *Date/Time:* ${bDatetime}\n` +
+              `─────────────────\n` +
+              `💬 *Customer WA:* wa.me/${waLinkPhone}`;
+            try {
+              await client.sendMessage(adminJid, adminMsg);
+              log(`[Booking] Forwarded booking from ${senderPhone} to admin ${adminPhone}`);
+            } catch (e) {
+              log(`[Booking] Failed to notify admin: ${e.message}`);
+            }
+          }
+
+          // Send confirmation to customer and clear history
+          await client.sendMessage(msg.from, cleanReply || `✅ Your booking is confirmed! We'll contact you shortly. 😊`);
+          clearHistory(senderPhone);
+          log(`[Booking] Booking confirmed and history cleared for ${senderPhone}.`);
+          return;
+        }
+
+        // ── Normal AI reply ───────────────────────────────────────────────
+        // Add assistant reply to history
+        addToHistory(senderPhone, 'assistant', replyText);
+
         await client.sendMessage(msg.from, replyText);
-        log(`[AI Autoreply] Sent response to ${senderPhone}: "${replyText.replace(/\n/g, ' ')}"`);
-        
-        // Forward AI reply to webhook so backend is kept updated
+        log(`[AI Autoreply] Sent response to ${senderPhone}: "${replyText.replace(/\n/g, ' ').slice(0, 100)}"`);
+
+        // Forward AI reply to webhook
         await forwardToBackend({
           from: (client.info?.wid?._serialized) || 'system@c.us',
           body: replyText,
@@ -474,8 +612,8 @@ app.get('/chat', authenticateUi, (req, res) => {
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 app.get('/status', authenticateApi, (req, res) => {
-  res.json({ 
-    ready: isReady, 
+  res.json({
+    ready: isReady,
     qr: qrCodeData,
     waSecret: WA_SECRET,
     username: process.env.AUTH_USER || 'admin'
@@ -491,7 +629,7 @@ app.get('/api/automation/config', authenticateApi, (req, res) => {
 
 app.post('/api/automation/config', authenticateApi, (req, res) => {
   const { enabled, systemPrompt, openRouterApiKey, model } = req.body;
-  
+
   if (enabled !== undefined) automationConfig.enabled = !!enabled;
   if (systemPrompt !== undefined) automationConfig.systemPrompt = systemPrompt;
   if (openRouterApiKey !== undefined) automationConfig.openRouterApiKey = openRouterApiKey;
@@ -730,14 +868,14 @@ app.post('/api/broadcast', async (req, res) => {
   if (!contacts || !Array.isArray(contacts)) {
     return res.status(400).json({ error: 'contacts array is required' });
   }
-  
+
   const msgText = message || template || '';
   if (!msgText) {
     return res.status(400).json({ error: 'message template content is required' });
   }
 
   const delaySec = parseInt(delay || interval || 5, 10);
-  
+
   res.json({ success: true, message: `Started background broadcast to ${contacts.length} contacts.` });
 
   // Run in background
@@ -746,7 +884,7 @@ app.post('/api/broadcast', async (req, res) => {
     for (let i = 0; i < contacts.length; i++) {
       const contact = contacts[i];
       let phone = '';
-      
+
       if (typeof contact === 'string' || typeof contact === 'number') {
         phone = String(contact);
       } else if (contact && typeof contact === 'object') {
@@ -776,7 +914,7 @@ app.post('/api/broadcast', async (req, res) => {
           if (numberId) {
             targetJid = numberId._serialized;
           }
-        } catch (e) {}
+        } catch (e) { }
 
         await client.sendMessage(targetJid, msgToSend);
         log(`[API Broadcast] Sent message to +${withCountry}`);
@@ -802,7 +940,7 @@ async function forwardToBackend(msg) {
 
   const fromJid = msg.from || (client?.info?.wid?._serialized) || 'system@c.us';
   const senderPhone = fromJid.split('@')[0];
-  
+
   try {
     let mediaData = null;
     if (msg.hasMedia && typeof msg.downloadMedia === 'function') {
